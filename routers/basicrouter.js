@@ -5,12 +5,12 @@ const router = require('express').Router()
 const ApiResponse = require('./helpers/apiresponse.js')
 const {User,DonorInfo, sequelize} =  require('../models')
 const {check_password} = require('./helpers/validators.js')
-const nodemailer = require('nodemailer')
-const {generate_token} = require('../config/generate_varify_token.js')
-const {token_varify} = require('../config/generate_varify_token.js')
+const {generate_token,token_varify} = require('../config/generate_varify_token.js')
+const { email_fun } = require('../config/email.js')
+const { htmlfun, htmlfun2 } = require('../config/mail_design.js')
+
 
 require('dotenv').config()
-
 
 router.post('/donor_reg',async(req,res)=>{
 
@@ -20,36 +20,36 @@ router.post('/donor_reg',async(req,res)=>{
 
         const data = req.body
         const {email,name,mobile,gender,bloodGroup} = data
-       
+
+        const userexist = await User.findOne({where:{email}})
+        const donorexist = await DonorInfo.findOne({where:{mobile}})
+        
+        if(userexist && donorexist) {
+            return res.json(new ApiResponse(false,'User already exist'))
+        }
+        if(userexist && donorexist === null) {
+            return res.json(new ApiResponse(false,'email already exist'))
+        }
+        if(userexist === null && donorexist) {
+            return res.json(new ApiResponse(false,'mobile already exist'))
+        }
+
         const userdata = {email,role:'donor',status:false}
         const user = await User.create(userdata,{transaction:t})
-
+        
         await DonorInfo.create({name,mobile,gender,bloodGroup,user:user.id},{transaction:t})
         const token = generate_token(user.id,user.role)
-       
 
-        const transporter = nodemailer.createTransport({
-               service:'gmail',
-               auth: {
-                   user: 'ahirwarrohit0206@gmail.com',
-                   pass: 'cvcc dscu rnfb ifpr'
-               }
-        })
+        const html_1 = htmlfun(name)
+        const html_2 = htmlfun2(token,name)
 
-        const varification_link = `http://localhost:${process.env.PORT}/varify?token=${token}`
-
-        const mailOptions = {
-            from :'ahirwarrohit@gmail.com',
-            to :email,
-            subject : "Email varification",
-            html : `<P>Hi ${name},</P>
-                    <P>Thank you for registering.Please verify your email by clicking the link below: </P>
-                     <a href="${varification_link}">Verify your email</a> `
-        }
- 
-        const sendMail = await transporter.sendMail(mailOptions)
+        await Promise.all([
+            email_fun(email,html_1,'Welcome to Pulse Donar'),
+            email_fun(email,html_2,'Pulse Donar Verification')
+        ])
+        
         await t.commit()
-        res.json(new ApiResponse(true,"Registration Successfully. Please verify your email.",token))
+        res.json(new ApiResponse(true,"Registration Successfully. Please verify your email."))
 
     } catch (error) {
          await t.rollback()
@@ -67,7 +67,7 @@ router.put('/varify_email/:token',async(req,res)=>{
         if(!token) {
            return res.json(new ApiResponse(false,'No Token Found'))
         }
-        
+
     try {
 
         token_varify(token,async(err,tokendata)=>{
