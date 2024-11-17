@@ -4,7 +4,8 @@ require('dotenv').config()
 const jwt = require('jsonwebtoken')
 
 const secret_key = process.env.jwt_secret
-const expiry = '200m'
+const expiry = '20m'
+
 
 
 function generate_token(userid,role) {

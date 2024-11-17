@@ -79,7 +79,7 @@ router.put('/varify_email/:token',async(req,res)=>{
             const {password,DOB,loc_lat,loc_long,tracker_area} = req.body
 
             if(!check_password(password)) {
-               return res.json(new ApiResponse(false,"password must be between 6 and 14 characters long"))
+               return res.json(new ApiResponse(false,"password must be between 7 and 14 characters long"))
             }
             const hashpass = await password_bcrypt(password)
            
